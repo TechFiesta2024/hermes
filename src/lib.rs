@@ -1,9 +1,17 @@
+use kafka::{client::RequiredAcks, producer::{Producer, Record}};
+use serde::{Deserialize, Serialize};
 use std::fmt::Display;
+use std:: time::Duration;
+use std::error::Error;
 
-use serde::Deserialize;
 
+#[derive(Serialize)]
+pub struct PingResponse {
+  pub ok: bool,
+  pub msg: String,
+}
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Identity {
   pub name: String,
   pub email: String,
@@ -11,18 +19,41 @@ pub struct Identity {
 
 impl Display for Identity {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-      write!(f, "({}, {})", self.name, self.email)
+    write!(f, "({}, {})", self.name, self.email)
   }
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct SendRequest {
   pub from: Identity,
-  pub to: Identity
+  pub to: Identity,
 }
 
 impl Display for SendRequest {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-      write!(f, "{} -> {}", self.from, self.to)
+    write!(f, "{} -> {}", self.from, self.to)
+  }
+}
+
+pub struct GlobalState {
+  pub producer: Producer,
+}
+
+impl GlobalState {
+  pub fn new() -> Self {
+    let producer = Producer::from_hosts(vec!["localhost:9092".to_owned()])
+      .with_ack_timeout(Duration::from_millis(500))
+      .with_required_acks(RequiredAcks::One)
+      .create()
+      .unwrap();
+
+    Self { producer }
+  }
+
+  pub fn send_json<T: Serialize>(self: &mut Self, data: &T) -> Result<(), Box<dyn Error>>{
+    let s = serde_json::to_string(&data)?;
+    let r = Record::from_value("", s.as_bytes());
+    self.producer.send(&r)?;
+    Ok(())
   }
 }
