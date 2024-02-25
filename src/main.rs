@@ -6,7 +6,7 @@ use axum::{
 
 use tokio_cron_scheduler::{Job, JobScheduler};
 
-use hermes::{PingResponse, SendRequest};
+use hermes::{Identity, PingResponse, SendRequest};
 use lettre::{
     message::header::ContentType, AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
 };
@@ -39,15 +39,22 @@ async fn main() {
 
     scheduler
         .add(
-            Job::new_async("1/5 * * * * *", |uuid, mut l| {
+            Job::new_async("1/10 * * * * *", |_uuid, _l| {
                 Box::pin(async move {
-                    println!("I run async every 7 seconds");
-
-                    let next_tick = l.next_tick_for_job(uuid).await;
-                    match next_tick {
-                        Ok(Some(ts)) => println!("Next time for 7s job is {:?}", ts),
-                        _ => println!("Could not get next tick for 7s job"),
-                    }
+                    let p = SendRequest {
+                        from: Identity {
+                            name: "Hermes".to_string(),
+                            email: "hermes@localhost".to_string(),
+                        },
+                        to: Identity {
+                            name: "Hermes".to_string(),
+                            email: "hermes@localhost".to_string(),
+                        },
+                        subject: "Hello".to_string(),
+                        body: "Hello".to_string(),
+                    };
+                    send_email(p).await;
+                    println!("send mail");
                 })
             })
             .unwrap(),
@@ -60,6 +67,7 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:1111")
         .await
         .unwrap();
+
     axum::serve(listener, app).await.unwrap();
 }
 
