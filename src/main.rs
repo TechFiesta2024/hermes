@@ -9,7 +9,6 @@ use tokio_cron_scheduler::JobScheduler;
 use tower_http::trace::TraceLayer;
 
 use hermes::PingResponse;
-use sqlx::postgres::PgPoolOptions;
 use tracing::{info, info_span};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -27,15 +26,6 @@ async fn main() {
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
-
-    //     let pool = PgPoolOptions::new()
-    //         .max_connections(7)
-    //         .connect(
-    //             "postgresql://postgres:password@loc
-    // alhost:5432/techfiesta24",
-    //         )
-    //         .await
-    //         .unwrap();
 
     let app = Router::new()
         .route("/ping", get(ping))
