@@ -5,34 +5,18 @@ use axum::{
     Json, Router,
 };
 
-use tokio_cron_scheduler::{Job, JobScheduler};
+use tokio_cron_scheduler::JobScheduler;
 use tower_http::trace::TraceLayer;
 
-use hermes::{Identity, PingResponse, SendRequest};
-use lettre::{
-    message::header::ContentType, AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
-};
+use hermes::PingResponse;
+use sqlx::postgres::PgPoolOptions;
 use tracing::{info, info_span};
-
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-async fn send_email(send_request: SendRequest) {
-    let email = Message::builder()
-        .from(send_request.from.email.parse().unwrap())
-        .reply_to(send_request.from.email.parse().unwrap())
-        .to(send_request.to.email.parse().unwrap())
-        .subject(send_request.subject)
-        .header(ContentType::TEXT_HTML)
-        .body(send_request.body)
-        .unwrap();
-
-    let mailer = AsyncSmtpTransport::<Tokio1Executor>::unencrypted_localhost();
-
-    match mailer.send(email).await {
-        Ok(_) => println!("Email sent successfully"),
-        Err(e) => println!("Error: {}", e),
-    }
-}
+use hermes::{
+    email::{send_email, Email},
+    scheduler::job,
+};
 
 #[tokio::main]
 async fn main() {
@@ -43,6 +27,15 @@ async fn main() {
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
+
+    //     let pool = PgPoolOptions::new()
+    //         .max_connections(7)
+    //         .connect(
+    //             "postgresql://postgres:password@loc
+    // alhost:5432/techfiesta24",
+    //         )
+    //         .await
+    //         .unwrap();
 
     let app = Router::new()
         .route("/ping", get(ping))
@@ -65,30 +58,7 @@ async fn main() {
 
     let scheduler = JobScheduler::new().await.unwrap();
 
-    scheduler
-        .add(
-            Job::new_async("1/10 * * * * *", |_uuid, _l| {
-                Box::pin(async move {
-                    // let p = SendRequest {
-                    //     from: Identity {
-                    //         name: "Hermes".to_string(),
-                    //         email: "hermes@localhost".to_string(),
-                    //     },
-                    //     to: Identity {
-                    //         name: "Hermes".to_string(),
-                    //         email: "hermes@localhost".to_string(),
-                    //     },
-                    //     subject: "Hello".to_string(),
-                    //     body: "Hello".to_string(),
-                    // };
-                    // send_email(p).await;
-                    info!("send mail");
-                })
-            })
-            .unwrap(),
-        )
-        .await
-        .unwrap();
+    scheduler.add(job()).await.unwrap();
 
     scheduler.start().await.unwrap();
     info!("scheduler started");
@@ -106,10 +76,10 @@ async fn ping() -> Json<PingResponse> {
     })
 }
 
-async fn send(headers: HeaderMap, Json(p): Json<SendRequest>) -> StatusCode {
+async fn send(headers: HeaderMap, Json(p): Json<Email>) -> StatusCode {
     let apikey = headers.get("api-key").unwrap().to_str().unwrap();
     println!("body -> {p}");
     println!("api-key -> {apikey}");
-    // send_email(p).await;
+    send_email(p).await;
     StatusCode::OK
 }
