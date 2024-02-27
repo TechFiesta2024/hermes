@@ -1,9 +1,8 @@
 use lettre::{
-    message::header::ContentType, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
-    AsyncTransport, Message, Tokio1Executor,
+    message::header::ContentType, AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
 };
 use serde::{Deserialize, Serialize};
-use std::{env, fmt::Display};
+use std::fmt::Display;
 
 #[derive(Serialize, Deserialize)]
 pub struct Identity {

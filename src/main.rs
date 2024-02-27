@@ -61,7 +61,7 @@ async fn main() {
     info!("mailer created");
 
     let app = Router::new()
-        .route("/ping", get(ping))
+        .route("/health_check", get(ping))
         .route("/send", post(send))
         .layer(
             TraceLayer::new_for_http().make_span_with(|request: &Request<_>| {
@@ -109,8 +109,9 @@ async fn send(
     Json(p): Json<Email>,
 ) -> StatusCode {
     let apikey = headers.get("api-key").unwrap().to_str().unwrap();
-    println!("body -> {p}");
-    println!("api-key -> {apikey}");
+    if apikey != env::var("API_KEY").unwrap() {
+        return StatusCode::FORBIDDEN;
+    }
     send_email(p, mailer).await;
     StatusCode::OK
 }
