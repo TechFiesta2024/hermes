@@ -1,11 +1,17 @@
 use axum::{
-    extract::MatchedPath,
+    extract::{MatchedPath, State},
     http::{HeaderMap, Request, StatusCode},
     routing::{get, post},
     Json, Router,
 };
+use std::env;
 
 // use tokio_cron_scheduler::JobScheduler;
+use lettre::{
+    transport::smtp::{authentication::Credentials, PoolConfig},
+    AsyncSmtpTransport, Tokio1Executor,
+};
+
 use tower_http::trace::TraceLayer;
 
 use hermes::PingResponse;
@@ -30,6 +36,30 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
+    let mode = env::var("MODE").unwrap_or_else(|_| "development".into());
+
+    info!("mode: {}", mode);
+
+    let mailer: AsyncSmtpTransport<Tokio1Executor>;
+
+    if mode == "development" {
+        mailer = AsyncSmtpTransport::<Tokio1Executor>::unencrypted_localhost();
+    } else {
+        let username = env::var("SMTP_USERNAME").expect("SMTP_USERNAME not set");
+        let password = env::var("SMTP_PASSWORD").expect("SMTP_PASSWORD not set");
+        let smtp_server = env::var("SMTP_SERVER").expect("SMTP_SERVER not set");
+
+        let creds = Credentials::new(username, password);
+
+        mailer = AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&smtp_server)
+            .unwrap()
+            .credentials(creds)
+            .pool_config(PoolConfig::new().max_size(10))
+            .build();
+    }
+
+    info!("mailer created");
+
     let app = Router::new()
         .route("/ping", get(ping))
         .route("/send", post(send))
@@ -47,7 +77,8 @@ async fn main() {
                     some_other_field = tracing::field::Empty,
                 )
             }),
-        );
+        )
+        .with_state(mailer);
 
     // let scheduler = JobScheduler::new().await.unwrap();
     //
@@ -72,10 +103,14 @@ async fn ping() -> Json<PingResponse> {
     })
 }
 
-async fn send(headers: HeaderMap, Json(p): Json<Email>) -> StatusCode {
+async fn send(
+    headers: HeaderMap,
+    State(mailer): State<AsyncSmtpTransport<Tokio1Executor>>,
+    Json(p): Json<Email>,
+) -> StatusCode {
     let apikey = headers.get("api-key").unwrap().to_str().unwrap();
     println!("body -> {p}");
     println!("api-key -> {apikey}");
-    send_email(p).await;
+    send_email(p, mailer).await;
     StatusCode::OK
 }

@@ -25,7 +25,7 @@ pub fn job() -> Job {
                     subject: "Hello".to_string(),
                     body: "Hello".to_string(),
                 };
-                send_email(p).await;
+                // send_email(p).await;
                 info!("send mail");
             }
         })

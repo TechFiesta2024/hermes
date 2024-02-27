@@ -50,26 +50,7 @@ impl Email {
     }
 }
 
-pub async fn send_email(email: Email) {
-    let mode = env::var("MODE").unwrap_or_else(|_| "development".into());
-
-    let mailer: AsyncSmtpTransport<Tokio1Executor>;
-
-    if mode == "development" {
-        mailer = AsyncSmtpTransport::<Tokio1Executor>::unencrypted_localhost();
-    } else {
-        let username = env::var("SMTP_USERNAME").expect("SMTP_USERNAME not set");
-        let password = env::var("SMTP_PASSWORD").expect("SMTP_PASSWORD not set");
-        let smtp_server = env::var("SMTP_SERVER").expect("SMTP_SERVER not set");
-
-        let creds = Credentials::new(username, password);
-
-        mailer = AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&smtp_server)
-            .unwrap()
-            .credentials(creds)
-            .build();
-    }
-
+pub async fn send_email(email: Email, mailer: AsyncSmtpTransport<Tokio1Executor>) {
     match mailer.send(email.to_message()).await {
         Ok(_) => println!("Email sent successfully"),
         Err(e) => println!("Error: {}", e),

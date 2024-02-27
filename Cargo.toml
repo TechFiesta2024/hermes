@@ -25,6 +25,7 @@ lettre = { version = "0.11.4", default-features = false, features = [
   "rustls-tls",
   "hostname",
   "builder",
+  "pool",
 ] }
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.114"
