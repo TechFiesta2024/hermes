@@ -12,14 +12,20 @@ path = "src/lib.rs"
 path = "src/main.rs"
 name = "hermes"
 
+[profile.profiling]
+inherits = "release"
+debug = true
+
 [dependencies]
 axum = "0.7.4"
+chrono-tz = "0.8.6"
 lettre = { version = "0.11.4", default-features = false, features = [
   "smtp-transport",
   "tokio1-rustls-tls",
   "rustls-tls",
   "hostname",
   "builder",
+  "pool",
 ] }
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.114"

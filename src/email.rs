@@ -36,10 +36,12 @@ impl Display for Email {
 
 impl Email {
     pub fn to_message(&self) -> Message {
+        let from_email = format!("{} <{}>", self.from.name, self.from.email);
+        let to_email = format!("{} <{}>", self.to.name, self.to.email);
         Message::builder()
-            .from(self.from.email.parse().unwrap())
-            .reply_to(self.from.email.parse().unwrap())
-            .to(self.to.email.parse().unwrap())
+            .from(from_email.parse().unwrap())
+            .reply_to(from_email.parse().unwrap())
+            .to(to_email.parse().unwrap())
             .subject(self.subject.clone())
             .header(ContentType::TEXT_HTML)
             .body(self.body.clone())
@@ -47,9 +49,7 @@ impl Email {
     }
 }
 
-pub async fn send_email(email: Email) {
-    let mailer = AsyncSmtpTransport::<Tokio1Executor>::unencrypted_localhost();
-
+pub async fn send_email(email: Email, mailer: AsyncSmtpTransport<Tokio1Executor>) {
     match mailer.send(email.to_message()).await {
         Ok(_) => println!("Email sent successfully"),
         Err(e) => println!("Error: {}", e),
