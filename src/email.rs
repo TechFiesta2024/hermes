@@ -3,6 +3,7 @@ use lettre::{
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
+use tracing::{error, info};
 
 #[derive(Serialize, Deserialize)]
 pub struct Identity {
@@ -51,7 +52,7 @@ impl Email {
 
 pub async fn send_email(email: Email, mailer: AsyncSmtpTransport<Tokio1Executor>) {
     match mailer.send(email.to_message()).await {
-        Ok(_) => println!("Email sent successfully"),
-        Err(e) => println!("Error: {}", e),
+        Ok(_) => info!("Email sent successfully"),
+        Err(e) => error!("Error: {}", e),
     }
 }
