@@ -1,6 +1,7 @@
 pub mod db;
 pub mod email;
 pub mod scheduler;
+pub mod shutdown;
 
 use serde::Serialize;
 

@@ -1,8 +1,9 @@
 use lettre::{
-    message::header::ContentType, AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
+    message::header::ContentType, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
+    AsyncTransport, Message, Tokio1Executor,
 };
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
+use std::{env, fmt::Display};
 
 #[derive(Serialize, Deserialize)]
 pub struct Identity {
@@ -36,10 +37,12 @@ impl Display for Email {
 
 impl Email {
     pub fn to_message(&self) -> Message {
+        let from_email = format!("{} <{}>", self.from.name, self.from.email);
+        let to_email = format!("{} <{}>", self.to.name, self.to.email);
         Message::builder()
-            .from(self.from.email.parse().unwrap())
-            .reply_to(self.from.email.parse().unwrap())
-            .to(self.to.email.parse().unwrap())
+            .from(from_email.parse().unwrap())
+            .reply_to(from_email.parse().unwrap())
+            .to(to_email.parse().unwrap())
             .subject(self.subject.clone())
             .header(ContentType::TEXT_HTML)
             .body(self.body.clone())
@@ -48,7 +51,24 @@ impl Email {
 }
 
 pub async fn send_email(email: Email) {
-    let mailer = AsyncSmtpTransport::<Tokio1Executor>::unencrypted_localhost();
+    let mode = env::var("MODE").unwrap_or_else(|_| "development".into());
+
+    let mailer: AsyncSmtpTransport<Tokio1Executor>;
+
+    if mode == "development" {
+        mailer = AsyncSmtpTransport::<Tokio1Executor>::unencrypted_localhost();
+    } else {
+        let username = env::var("SMTP_USERNAME").expect("SMTP_USERNAME not set");
+        let password = env::var("SMTP_PASSWORD").expect("SMTP_PASSWORD not set");
+        let smtp_server = env::var("SMTP_SERVER").expect("SMTP_SERVER not set");
+
+        let creds = Credentials::new(username, password);
+
+        mailer = AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&smtp_server)
+            .unwrap()
+            .credentials(creds)
+            .build();
+    }
 
     match mailer.send(email.to_message()).await {
         Ok(_) => println!("Email sent successfully"),

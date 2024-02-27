@@ -5,7 +5,7 @@ use axum::{
     Json, Router,
 };
 
-use tokio_cron_scheduler::JobScheduler;
+// use tokio_cron_scheduler::JobScheduler;
 use tower_http::trace::TraceLayer;
 
 use hermes::PingResponse;
@@ -14,15 +14,18 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use hermes::{
     email::{send_email, Email},
-    scheduler::job,
+    // scheduler::job,
+    shutdown,
 };
 
 #[tokio::main]
 async fn main() {
     tracing_subscriber::registry()
         .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "hermes=debug,tower_http=debug,axum::rejection=trace".into()),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                "hermes=debug,tower_http=debug,axum::rejection=trace,tokio=trace,runtime=trace"
+                    .into()
+            }),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
@@ -46,17 +49,20 @@ async fn main() {
             }),
         );
 
-    let scheduler = JobScheduler::new().await.unwrap();
-
-    scheduler.add(job()).await.unwrap();
-
-    scheduler.start().await.unwrap();
-    info!("scheduler started");
+    // let scheduler = JobScheduler::new().await.unwrap();
+    //
+    // scheduler.add(job()).await.unwrap();
+    //
+    // scheduler.start().await.unwrap();
+    // info!("scheduler started");
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:1111").await.unwrap();
     info!("listening on {}", listener.local_addr().unwrap());
 
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown::shutdown_signal())
+        .await
+        .unwrap();
 }
 
 async fn ping() -> Json<PingResponse> {
