@@ -1,28 +1,52 @@
 use axum::{
+    body::Body,
     extract::{MatchedPath, State},
     http::{Request, StatusCode},
+    middleware::{self, Next},
+    response::Response,
     routing::{get, post},
     Json, Router,
 };
-use std::env;
-
-// use tokio_cron_scheduler::JobScheduler;
 use lettre::{
     transport::smtp::{authentication::Credentials, PoolConfig},
     AsyncSmtpTransport, Tokio1Executor,
 };
-
+use std::env;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
-
-use hermes::PingResponse;
 use tracing::{info, info_span};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+use hermes::PingResponse;
 use hermes::{
     email::{send_email, Email},
-    // scheduler::job,
     shutdown,
 };
+
+async fn verify_key(req: Request<Body>, next: Next) -> Result<Response, Response> {
+    let (parts, body) = req.into_parts();
+    let api_key = env::var("API_KEY").unwrap();
+    let headers = parts.headers.get("x-api-key");
+
+    match headers {
+        Some(key) => {
+            if key.to_str().unwrap() != api_key {
+                return Ok(Response::builder()
+                    .status(StatusCode::UNAUTHORIZED)
+                    .body(Body::empty())
+                    .unwrap());
+            }
+        }
+        None => {
+            return Ok(Response::builder()
+                .status(StatusCode::UNAUTHORIZED)
+                .body(Body::empty())
+                .unwrap());
+        }
+    }
+
+    let new_req = Request::from_parts(parts, body);
+    Ok(next.run(new_req).await)
+}
 
 #[tokio::main]
 async fn main() {
@@ -60,10 +84,13 @@ async fn main() {
 
     info!("mailer created");
 
+    let send_email_router = Router::new()
+        .route("/send", post(send))
+        .layer(middleware::from_fn(verify_key));
+
     let app = Router::new()
         .route("/health_check", get(ping))
-        .route("/send", post(send))
-        .layer(CorsLayer::permissive())
+        .merge(send_email_router)
         .layer(
             TraceLayer::new_for_http().make_span_with(|request: &Request<_>| {
                 let matched_path = request
@@ -79,14 +106,8 @@ async fn main() {
                 )
             }),
         )
+        .layer(CorsLayer::permissive())
         .with_state(mailer);
-
-    // let scheduler = JobScheduler::new().await.unwrap();
-    //
-    // scheduler.add(job()).await.unwrap();
-    //
-    // scheduler.start().await.unwrap();
-    // info!("scheduler started");
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:1111").await.unwrap();
     info!("listening on {}", listener.local_addr().unwrap());
@@ -105,14 +126,9 @@ async fn ping() -> Json<PingResponse> {
 }
 
 async fn send(
-    // headers: HeaderMap,
     State(mailer): State<AsyncSmtpTransport<Tokio1Executor>>,
     Json(p): Json<Email>,
 ) -> StatusCode {
-    // let apikey = headers.get("api-key").unwrap().to_str().unwrap();
-    // if apikey != env::var("API_KEY").unwrap() {
-    //     return StatusCode::FORBIDDEN;
-    // }
     send_email(p, mailer).await;
     StatusCode::OK
 }
