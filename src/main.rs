@@ -1,6 +1,6 @@
 use axum::{
     extract::{MatchedPath, State},
-    http::{HeaderMap, Request, StatusCode},
+    http::{Request, StatusCode},
     routing::{get, post},
     Json, Router,
 };
@@ -42,9 +42,7 @@ async fn main() {
 
     let mailer: AsyncSmtpTransport<Tokio1Executor>;
 
-    if mode == "development" {
-        mailer = AsyncSmtpTransport::<Tokio1Executor>::unencrypted_localhost();
-    } else {
+    if mode == "production" {
         let username = env::var("SMTP_USERNAME").expect("SMTP_USERNAME not set");
         let password = env::var("SMTP_PASSWORD").expect("SMTP_PASSWORD not set");
         let smtp_server = env::var("SMTP_SERVER").expect("SMTP_SERVER not set");
@@ -56,6 +54,8 @@ async fn main() {
             .credentials(creds)
             .pool_config(PoolConfig::new().max_size(10))
             .build();
+    } else {
+        mailer = AsyncSmtpTransport::<Tokio1Executor>::unencrypted_localhost();
     }
 
     info!("mailer created");
@@ -105,14 +105,14 @@ async fn ping() -> Json<PingResponse> {
 }
 
 async fn send(
-    headers: HeaderMap,
+    // headers: HeaderMap,
     State(mailer): State<AsyncSmtpTransport<Tokio1Executor>>,
     Json(p): Json<Email>,
 ) -> StatusCode {
-    let apikey = headers.get("api-key").unwrap().to_str().unwrap();
-    if apikey != env::var("API_KEY").unwrap() {
-        return StatusCode::FORBIDDEN;
-    }
+    // let apikey = headers.get("api-key").unwrap().to_str().unwrap();
+    // if apikey != env::var("API_KEY").unwrap() {
+    //     return StatusCode::FORBIDDEN;
+    // }
     send_email(p, mailer).await;
     StatusCode::OK
 }
