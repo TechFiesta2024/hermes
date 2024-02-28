@@ -18,7 +18,6 @@ debug = true
 
 [dependencies]
 axum = "0.7.4"
-chrono-tz = "0.8.6"
 lettre = { version = "0.11.4", default-features = false, features = [
   "smtp-transport",
   "tokio1-rustls-tls",
@@ -35,7 +34,6 @@ sqlx = { version = "0.7.3", features = [
   "runtime-tokio-rustls",
 ] }
 tokio = { version = "1.36.0", features = ["full"] }
-tokio-cron-scheduler = "0.10.0"
 tower-http = { version = "0.5.2", features = ["cors", "trace"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
