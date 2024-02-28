@@ -63,7 +63,6 @@ async fn main() {
     let app = Router::new()
         .route("/health_check", get(ping))
         .route("/send", post(send))
-        .layer(CorsLayer::permissive())
         .layer(
             TraceLayer::new_for_http().make_span_with(|request: &Request<_>| {
                 let matched_path = request
