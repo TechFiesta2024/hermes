@@ -1,52 +1,15 @@
-use axum::{
-    body::Body,
-    extract::{MatchedPath, State},
-    http::{Request, StatusCode},
-    middleware::{self, Next},
-    response::Response,
-    routing::{get, post},
-    Json, Router,
-};
+use axum::{extract::MatchedPath, http::Request, Router};
 use lettre::{
     transport::smtp::{authentication::Credentials, PoolConfig},
     AsyncSmtpTransport, Tokio1Executor,
 };
+use sqlx::postgres::PgPoolOptions;
 use std::env;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing::{info, info_span};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use hermes::PingResponse;
-use hermes::{
-    email::{send_email, Email},
-    shutdown,
-};
-
-async fn verify_key(req: Request<Body>, next: Next) -> Result<Response, Response> {
-    let (parts, body) = req.into_parts();
-    let api_key = env::var("API_KEY").unwrap();
-    let headers = parts.headers.get("x-api-key");
-
-    match headers {
-        Some(key) => {
-            if key.to_str().unwrap() != api_key {
-                return Ok(Response::builder()
-                    .status(StatusCode::UNAUTHORIZED)
-                    .body(Body::empty())
-                    .unwrap());
-            }
-        }
-        None => {
-            return Ok(Response::builder()
-                .status(StatusCode::UNAUTHORIZED)
-                .body(Body::empty())
-                .unwrap());
-        }
-    }
-
-    let new_req = Request::from_parts(parts, body);
-    Ok(next.run(new_req).await)
-}
+use hermes::{routes, shutdown, AppState};
 
 #[tokio::main]
 async fn main() {
@@ -78,19 +41,24 @@ async fn main() {
             .credentials(creds)
             .pool_config(PoolConfig::new().max_size(10))
             .build();
+
+        info!("mailer configured for production mode")
     } else {
         mailer = AsyncSmtpTransport::<Tokio1Executor>::unencrypted_localhost();
+
+        info!("mailer configured for development mode")
     }
 
-    info!("mailer created");
+    let conn = PgPoolOptions::new()
+        .max_connections(5)
+        .connect("postgresql://postgres:password@localhost:5432/techfiesta24")
+        .await
+        .unwrap();
 
-    let send_email_router = Router::new()
-        .route("/send", post(send))
-        .layer(middleware::from_fn(verify_key));
+    let app_state = AppState { pool: conn, mailer };
 
     let app = Router::new()
-        .route("/health_check", get(ping))
-        .merge(send_email_router)
+        .merge(routes::routes(app_state))
         .layer(
             TraceLayer::new_for_http().make_span_with(|request: &Request<_>| {
                 let matched_path = request
@@ -106,29 +74,14 @@ async fn main() {
                 )
             }),
         )
-        .layer(CorsLayer::permissive())
-        .with_state(mailer);
+        .layer(CorsLayer::permissive());
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:1111").await.unwrap();
+
     info!("listening on {}", listener.local_addr().unwrap());
 
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown::shutdown_signal())
         .await
         .unwrap();
-}
-
-async fn ping() -> Json<PingResponse> {
-    Json(PingResponse {
-        ok: true,
-        msg: "Hello World".to_string(),
-    })
-}
-
-async fn send(
-    State(mailer): State<AsyncSmtpTransport<Tokio1Executor>>,
-    Json(p): Json<Email>,
-) -> StatusCode {
-    send_email(p, mailer).await;
-    StatusCode::OK
 }

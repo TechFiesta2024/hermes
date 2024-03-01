@@ -1,11 +1,11 @@
-pub mod db;
-pub mod email;
+pub mod routes;
 pub mod shutdown;
 
-use serde::Serialize;
+use lettre::{transport::smtp::AsyncSmtpTransport, Tokio1Executor};
+use sqlx::{Pool, Postgres};
 
-#[derive(Serialize)]
-pub struct PingResponse {
-    pub ok: bool,
-    pub msg: String,
+#[derive(Clone)]
+pub struct AppState {
+    pub pool: Pool<Postgres>,
+    pub mailer: AsyncSmtpTransport<Tokio1Executor>,
 }
