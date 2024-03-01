@@ -10,17 +10,9 @@ use crate::AppState;
 
 #[derive(Deserialize)]
 pub struct BatchSendEmailBody {
-    workshop_event_name: WorkShopsEvents,
+    workshop_event_name: String,
     subject: String,
     email_body: String,
-}
-
-#[derive(Deserialize)]
-enum WorkShopsEvents {
-    ProductDesign,
-    CAD,
-    CTF,
-    Hardware,
 }
 
 #[derive(FromRow, Debug)]
@@ -33,50 +25,26 @@ pub async fn batch_send_email(
     State(app): State<AppState>,
     Json(body): Json<BatchSendEmailBody>,
 ) -> StatusCode {
-    match body.workshop_event_name {
-        WorkShopsEvents::ProductDesign => {
-            tracing::info!("Sending email to: ProductDesign");
+    if matches!(
+        body.workshop_event_name.as_str(),
+        "product" | "ctf" | "cad" | "hardware"
+    ) {
+        tracing::info!("Sending email to: {}", body.workshop_event_name);
 
-            let rows: Vec<UserInfo> = sqlx::query_as("SELECT name, email FROM workshop_product")
-                .fetch_all(&app.pool)
-                .await
-                .unwrap();
+        let rows: Vec<UserInfo> = sqlx::query_as(&format!(
+            "SELECT name, email FROM workshop_{}",
+            body.workshop_event_name
+        ))
+        .fetch_all(&app.pool)
+        .await
+        .unwrap();
 
-            send_email(app.mailer, rows, body.subject, body.email_body).await;
-        }
-        WorkShopsEvents::CAD => {
-            tracing::info!("Sending email to: CAD");
+        send_email(app.mailer, rows, body.subject, body.email_body).await;
 
-            let rows: Vec<UserInfo> = sqlx::query_as("SELECT name, email FROM workshop_cad")
-                .fetch_all(&app.pool)
-                .await
-                .unwrap();
-
-            send_email(app.mailer, rows, body.subject, body.email_body).await;
-        }
-        WorkShopsEvents::CTF => {
-            tracing::info!("Sending email to: CTF");
-
-            let rows: Vec<UserInfo> = sqlx::query_as("SELECT name, email FROM workshop_ctf")
-                .fetch_all(&app.pool)
-                .await
-                .unwrap();
-
-            send_email(app.mailer, rows, body.subject, body.email_body).await;
-        }
-        WorkShopsEvents::Hardware => {
-            tracing::info!("Sending email to: Hardware");
-
-            let rows: Vec<UserInfo> = sqlx::query_as("SELECT name, email FROM workshop_hardware")
-                .fetch_all(&app.pool)
-                .await
-                .unwrap();
-
-            send_email(app.mailer, rows, body.subject, body.email_body).await;
-        }
+        StatusCode::OK
+    } else {
+        StatusCode::BAD_REQUEST
     }
-
-    StatusCode::OK
 }
 
 pub async fn send_email(
