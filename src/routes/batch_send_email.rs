@@ -39,7 +39,14 @@ pub async fn batch_send_email(
         .await
         .unwrap();
 
-        send_email(app.mailer, rows, body.subject, body.email_body).await;
+        send_email(
+            app.mailer,
+            rows,
+            body.subject,
+            body.email_body,
+            app.config.smtp.username,
+        )
+        .await;
 
         StatusCode::OK
     } else {
@@ -52,6 +59,7 @@ pub async fn send_email(
     address: Vec<UserInfo>,
     subject: String,
     mail_body: String,
+    username: String,
 ) {
     let to_addresser = address
         .iter()
@@ -67,7 +75,7 @@ pub async fn send_email(
 
     let email = MessageBuilder::new()
         .mailbox(to_header)
-        .from("Tech Team <no-reply@localhost.com>".parse().unwrap())
+        .from(format!("TechFiesta Team <{}>", username).parse().unwrap())
         .subject(subject)
         .singlepart(SinglePart::html(mail_body))
         .unwrap();

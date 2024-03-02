@@ -9,38 +9,31 @@ use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing::{info, info_span};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use hermes::{routes, shutdown, AppState};
+use hermes::{config::get_config, routes, shutdown, AppState};
 
 #[tokio::main]
 async fn main() {
+    let config = get_config();
+
     tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                "hermes=debug,tower_http=debug,axum::rejection=trace,tokio=trace,runtime=trace"
-                    .into()
-            }),
-        )
+        .with(tracing_subscriber::EnvFilter::try_from_default_env().unwrap())
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let mode = env::var("MODE").unwrap_or_else(|_| "development".into());
-
-    info!("mode: {}", mode);
+    println!("{:?}", config);
 
     let mailer: AsyncSmtpTransport<Tokio1Executor>;
 
-    if mode == "production" {
-        let username = env::var("SMTP_USERNAME").expect("SMTP_USERNAME not set");
-        let password = env::var("SMTP_PASSWORD").expect("SMTP_PASSWORD not set");
-        let smtp_server = env::var("SMTP_SERVER").expect("SMTP_SERVER not set");
+    if config.mode == "production" {
+        let creds = Credentials::new(config.smtp.username.clone(), config.smtp.password.clone());
 
-        let creds = Credentials::new(username, password);
-
-        mailer = AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&smtp_server)
+        mailer = AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&config.smtp.server)
             .unwrap()
             .credentials(creds)
             .pool_config(PoolConfig::new().max_size(10))
             .build();
+
+        info!("{:?}", mailer);
 
         info!("mailer configured for production mode")
     } else {
@@ -51,11 +44,13 @@ async fn main() {
 
     let conn = PgPoolOptions::new()
         .max_connections(5)
-        .connect("postgresql://postgres:password@localhost:5432/techfiesta24")
-        .await
-        .unwrap();
+        .connect_lazy_with(config.database.connection_string());
 
-    let app_state = AppState { pool: conn, mailer };
+    let app_state = AppState {
+        pool: conn,
+        mailer,
+        config,
+    };
 
     let app = Router::new()
         .merge(routes::routes(app_state))

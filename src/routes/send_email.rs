@@ -20,7 +20,11 @@ pub async fn send_email(
     tracing::info!("Sending email to: {}", to);
 
     let email = Message::builder()
-        .from("Tech Team <tt@local.com>".parse().unwrap())
+        .from(
+            format!("TechFiesta Team <{}>", app.config.smtp.username)
+                .parse()
+                .unwrap(),
+        )
         .to(to.parse().unwrap())
         .subject(body.subject)
         .singlepart(SinglePart::html(body.email_body))
