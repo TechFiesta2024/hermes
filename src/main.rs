@@ -4,9 +4,7 @@ use lettre::{
     AsyncSmtpTransport, Tokio1Executor,
 };
 use sqlx::postgres::PgPoolOptions;
-use std::env;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
-use tracing::{info, info_span};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use hermes::{config::get_config, routes, shutdown, AppState};
@@ -20,8 +18,6 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    println!("{:?}", config);
-
     let mailer: AsyncSmtpTransport<Tokio1Executor>;
 
     if config.mode == "production" {
@@ -33,13 +29,13 @@ async fn main() {
             .pool_config(PoolConfig::new().max_size(10))
             .build();
 
-        info!("{:?}", mailer);
+        tracing::info!("{:?}", mailer);
 
-        info!("mailer configured for production mode")
+        tracing::info!("mailer configured for production mode")
     } else {
         mailer = AsyncSmtpTransport::<Tokio1Executor>::unencrypted_localhost();
 
-        info!("mailer configured for development mode")
+        tracing::info!("mailer configured for development mode")
     }
 
     let conn = PgPoolOptions::new()
@@ -61,7 +57,7 @@ async fn main() {
                     .get::<MatchedPath>()
                     .map(MatchedPath::as_str);
 
-                info_span!(
+                tracing::info_span!(
                     "http_request",
                     method = ?request.method(),
                     matched_path,
@@ -73,7 +69,7 @@ async fn main() {
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:1111").await.unwrap();
 
-    info!("listening on {}", listener.local_addr().unwrap());
+    tracing::info!("listening on {}", listener.local_addr().unwrap());
 
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown::shutdown_signal())
