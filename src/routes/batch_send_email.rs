@@ -39,6 +39,11 @@ pub async fn batch_send_email(
         .await
         .unwrap();
 
+        // TODO more error handling
+        if rows.is_empty() {
+            return StatusCode::NOT_FOUND;
+        }
+
         send_email(
             app.mailer,
             rows,

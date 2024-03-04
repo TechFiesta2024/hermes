@@ -59,11 +59,11 @@ pub fn get_config() -> Settings {
 
     if env::var("MODE").unwrap() == "production" {
         let db_config = Database {
-            username: env::var("DB_USERNAME").unwrap(),
-            password: env::var("DB_PASSWORD").unwrap(),
-            port: env::var("DB_PORT").unwrap().parse().unwrap(),
-            host: env::var("DB_HOST").unwrap(),
-            database_name: env::var("DB_NAME").unwrap(),
+            username: env::var("DATABASE_USERNAME").unwrap(),
+            password: env::var("DATABASE_PASSWORD").unwrap(),
+            port: env::var("DATABASE_PORT").unwrap().parse().unwrap(),
+            host: env::var("DATABASE_HOST").unwrap(),
+            database_name: env::var("DATABASE_NAME").unwrap(),
             require_ssl: true,
         };
         let smtp_config = Smtp {
