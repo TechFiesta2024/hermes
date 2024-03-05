@@ -17,6 +17,7 @@ pub async fn send_email(
     Json(body): Json<SendEmailBody>,
 ) -> StatusCode {
     let to = format!("{} <{}>", body.name, body.email);
+
     tracing::info!("Sending email to: {}", to);
 
     let email = Message::builder()
@@ -30,10 +31,12 @@ pub async fn send_email(
         .singlepart(SinglePart::html(body.email_body))
         .unwrap();
 
-    match app.mailer.send(email).await {
-        Ok(_) => tracing::info!("Email sent successfully"),
-        Err(e) => tracing::error!("Error: {}", e),
-    }
+    tokio::spawn(async move {
+        match app.mailer.send(email).await {
+            Ok(_) => tracing::info!("Email sent successfully"),
+            Err(e) => tracing::error!("Error: {}", e),
+        }
+    });
 
     StatusCode::OK
 }

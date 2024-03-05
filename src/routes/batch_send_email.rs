@@ -44,14 +44,16 @@ pub async fn batch_send_email(
             return StatusCode::NOT_FOUND;
         }
 
-        send_email(
-            app.mailer,
-            rows,
-            body.subject,
-            body.email_body,
-            app.config.smtp.username,
-        )
-        .await;
+        tokio::spawn(async move {
+            send_email(
+                app.mailer,
+                rows,
+                body.subject,
+                body.email_body,
+                app.config.smtp.username,
+            )
+            .await;
+        });
 
         StatusCode::OK
     } else {
