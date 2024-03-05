@@ -15,4 +15,5 @@ FROM gcr.io/distroless/cc-debian12 as runtime
 WORKDIR /app
 COPY --from=builder /app/target/release/hermes hermes
 ENV MODE production
+ENV TZ=Asia/Kolkata
 ENTRYPOINT ["./hermes"]
