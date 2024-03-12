@@ -27,19 +27,15 @@ pub async fn batch_send_email(
 ) -> StatusCode {
     if matches!(
         body.workshop_event_name.as_str(),
-        "product" | "ctf" | "cad" | "hardware"
+        "product_design" | "ctf" | "cad" | "hardware"
     ) {
         tracing::info!("Sending email to: {}", body.workshop_event_name);
 
-        let rows: Vec<UserInfo> = sqlx::query_as(&format!(
-            "SELECT name, email FROM workshop_{}",
-            body.workshop_event_name
-        ))
-        .fetch_all(&app.pool)
-        .await
-        .unwrap();
+        let rows: Vec<UserInfo> = sqlx::query_as(&format!("SELECT name, email FROM workshop left join college_users on user_email = email where category = '{}'",body.workshop_event_name))
+            .fetch_all(&app.pool)
+            .await
+            .unwrap();
 
-        // TODO more error handling
         if rows.is_empty() {
             return StatusCode::NOT_FOUND;
         }
