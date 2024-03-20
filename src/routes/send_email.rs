@@ -22,10 +22,11 @@ pub async fn send_email(
 
     let email = Message::builder()
         .from(
-            format!("TechFiesta Team <{}>", app.config.smtp.username)
+            format!("TechFiesta Team <{}>", app.config.smtp.from)
                 .parse()
                 .unwrap(),
         )
+        .reply_to(app.config.smtp.from.parse().unwrap())
         .to(to.parse().unwrap())
         .subject(body.subject)
         .singlepart(SinglePart::html(body.email_body))

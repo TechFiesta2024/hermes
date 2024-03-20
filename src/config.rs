@@ -43,6 +43,7 @@ pub struct Smtp {
     pub username: String,
     pub password: String,
     pub server: String,
+    pub from: String,
 }
 
 pub fn get_config() -> Settings {
@@ -70,6 +71,7 @@ pub fn get_config() -> Settings {
             username: env::var("SMTP_USERNAME").unwrap(),
             password: env::var("SMTP_PASSWORD").unwrap(),
             server: env::var("SMTP_SERVER").unwrap(),
+            from: env::var("SMTP_FROM").unwrap(),
         };
         Settings {
             database: db_config,
@@ -86,9 +88,10 @@ pub fn get_config() -> Settings {
             require_ssl: false,
         };
         let smtp_config = Smtp {
-            username: "local@host.com".to_string(),
+            username: "".to_string(),
             password: "".to_string(),
             server: "".to_string(),
+            from: "local@host.com".to_string(),
         };
         Settings {
             database: db_config,
